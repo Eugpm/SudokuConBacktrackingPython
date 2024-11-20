@@ -1,0 +1,121 @@
+import time  # Importamos el módulo para medir el tiempo
+
+# Estados para rastrear restricciones en filas, columnas y subcuadros 3x3
+rows = [set() for _ in range(9)]  # Conjunto de números en cada fila
+cols = [set() for _ in range(9)]  # Conjunto de números en cada columna
+boxes = [set() for _ in range(9)]  # Conjunto de números en cada subcuadro 3x3
+
+def preprocess(grid):
+    """
+    Inicializa las restricciones basadas en la cuadrícula inicial.
+    Llena las estructuras `rows`, `cols` y `boxes` con los números
+    ya presentes en la cuadrícula.
+    """
+    for r in range(9):  # Recorre cada fila
+        for c in range(9):  # Recorre cada columna
+            num = grid[r][c]
+            if num != 0:  # Si la celda no está vacía
+                rows[r].add(num)  # Añade el número a las restricciones de la fila
+                cols[c].add(num)  # Añade el número a las restricciones de la columna
+                boxes[(r // 3) * 3 + (c // 3)].add(num)  # Añade al subcuadro correspondiente
+
+def is_valid_move_fast(row, col, num):
+    """
+    Verifica si es válido colocar 'num' en la posición (row, col) usando las restricciones precomputadas.
+    Devuelve True si no hay conflictos en la fila, columna o subcuadro.
+    """
+    box_index = (row // 3) * 3 + (col // 3)  # Calcula el índice del subcuadro
+    return num not in rows[row] and num not in cols[col] and num not in boxes[box_index]
+
+def find_empty_location_with_constraints(grid):
+    """
+    Encuentra la celda vacía con la menor cantidad de opciones válidas (más restringida).
+    Esto optimiza el backtracking al reducir el número de caminos explorados.
+    """
+    min_options = 10  # Número máximo de opciones + 1
+    best_cell = None  # Inicializa la mejor celda como None
+
+    for r in range(9):  # Recorre todas las filas
+        for c in range(9):  # Recorre todas las columnas
+            if grid[r][c] == 0:  # Si la celda está vacía
+                # Cuenta cuántos números del 1 al 9 son válidos para esta celda
+                options = sum(1 for num in range(1, 10) if is_valid_move_fast(r, c, num))
+                if options < min_options:  # Si tiene menos opciones, es más restringida
+                    min_options = options
+                    best_cell = (r, c)  # Actualiza la mejor celda
+
+    return best_cell  # Devuelve la celda más restringida o None si no hay vacías
+
+def solve_sudoku_optimized(grid):
+    """
+    Resuelve el Sudoku usando restricciones precomputadas y priorización de celdas restringidas.
+    Retorna True si encuentra una solución; False de lo contrario.
+    """
+    # Encuentra la celda vacía más restringida
+    find = find_empty_location_with_constraints(grid)
+    if not find:  # Si no hay celdas vacías, el Sudoku está resuelto
+        return True
+    row, col = find  # Desempaqueta las coordenadas de la celda más restringida
+
+    for num in range(1, 10):  # Intenta colocar números del 1 al 9
+        if is_valid_move_fast(row, col, num):  # Si el movimiento es válido
+            grid[row][col] = num  # Coloca el número en la celda
+            rows[row].add(num)  # Actualiza las restricciones para la fila
+            cols[col].add(num)  # Actualiza las restricciones para la columna
+            boxes[(row // 3) * 3 + (col // 3)].add(num)  # Actualiza el subcuadro
+
+            if solve_sudoku_optimized(grid):  # Llama recursivamente al siguiente paso
+                return True  # Si encuentra solución, termina
+
+            # Si no encuentra solución, retrocede (backtracking)
+            grid[row][col] = 0  # Vacía la celda
+            rows[row].remove(num)  # Elimina el número de las restricciones de la fila
+            cols[col].remove(num)  # Elimina el número de las restricciones de la columna
+            boxes[(row // 3) * 3 + (col // 3)].remove(num)  # Elimina del subcuadro
+
+    return False  # Si no se pudo colocar ningún número, regresa False
+
+def print_sudoku_pretty(grid):
+    """
+    Imprime el Sudoku de manera legible, con separadores entre subcuadros 3x3.
+    """
+    for i, row in enumerate(grid):
+        if i % 3 == 0 and i != 0:  # Imprime una línea separadora entre bloques
+            print("-" * 21)
+        # Agrupa la fila en bloques de 3 y los imprime con separadores
+        print(" | ".join(" ".join(str(cell) if cell != 0 else "." for cell in row[j:j+3]) for j in range(0, 9, 3)))
+
+# Ejemplo de Sudoku
+grid = [
+    [5, 3, 0, 0, 7, 0, 0, 0, 0],
+    [6, 0, 0, 1, 9, 5, 0, 0, 0],
+    [0, 9, 8, 0, 0, 0, 0, 6, 0],
+    [8, 0, 0, 0, 6, 0, 0, 0, 3],
+    [4, 0, 0, 8, 0, 3, 0, 0, 1],
+    [7, 0, 0, 0, 2, 0, 0, 0, 6],
+    [0, 6, 0, 0, 0, 0, 2, 8, 0],
+    [0, 0, 0, 4, 1, 9, 0, 0, 5],
+    [0, 0, 0, 0, 8, 0, 0, 7, 9]
+]
+
+# Preprocesa las restricciones iniciales
+preprocess(grid)
+
+# Imprime el Sudoku inicial
+print("Sudoku inicial:")
+print_sudoku_pretty(grid)
+
+# Mide el tiempo de ejecución
+start_time = time.time()  # Comienza a contar el tiempo
+
+# Resuelve el Sudoku
+if solve_sudoku_optimized(grid):
+    print("\nSudoku resuelto:")
+    print_sudoku_pretty(grid)
+else:
+    print("\nNo existe solución para este Sudoku.")
+
+end_time = time.time()  # Termina de contar el tiempo
+
+# Imprime el tiempo de ejecución
+print(f"\nTiempo de ejecución: {end_time - start_time:.6f} segundos")
